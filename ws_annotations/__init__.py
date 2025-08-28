@@ -1,0 +1,1 @@
+default_app_config = 'ws_annotations.apps.WsAnnotationsConfig'

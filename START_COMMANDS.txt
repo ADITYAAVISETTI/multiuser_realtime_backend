@@ -1,0 +1,24 @@
+# WebSocket Server Start Commands
+
+## FIXED: Module conflict resolved by renaming 'annotations' to 'ws_annotations'
+
+## Quick Start (Try this first):
+cd /apps/websocket_server
+python3 -m daphne -b 0.0.0.0 -p 7000 websocket_project.asgi:application
+
+## If you get dependency errors:
+pip3 install Django==3.2.25 channels==3.0.4 daphne==3.0.2 django-cors-headers==3.10.0
+
+## Alternative with Python path:
+cd /apps/websocket_server
+export PYTHONPATH=/apps/websocket_server:$PYTHONPATH
+python3 -m daphne -b 0.0.0.0 -p 7000 websocket_project.asgi:application
+
+## What you should see when successful:
+2024-XX-XX XX:XX:XX,XXX - INFO - server - Listening on TCP address 0.0.0.0:7000
+
+## Test the connection:
+1. Keep the server running in the terminal
+2. Go to annotation viewer in browser
+3. Click draw icon → "Join Session"
+4. Should see "Active Connections: 1" in footer
