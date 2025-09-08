@@ -33,13 +33,23 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         if self.username:
             users = await room_manager.remove_user_from_room(self.room_id, self.username, self.channel_name)
             
-            # Notify other users about the disconnection
+            # Notify other users about the disconnection (includes drawing cleanup)
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'user_left',
                     'username': self.username,
                     'users': users
+                }
+            )
+            
+            # Also send explicit drawing cleanup message
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'clear_drawings',
+                    'username': self.username,
+                    'sender_channel': self.channel_name
                 }
             )
         
@@ -67,6 +77,19 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 await self.handle_cursor_move(data)
             elif message_type == 'chat':
                 await self.handle_chat_message(data)
+            # NEW: Drawing-related message types
+            elif message_type == 'drawing_start':
+                await self.handle_drawing_start(data)
+            elif message_type == 'drawing_update':
+                await self.handle_drawing_update(data)
+            elif message_type == 'drawing_end':
+                await self.handle_drawing_end(data)
+            elif message_type == 'geometry_select':
+                await self.handle_geometry_select(data)
+            elif message_type == 'add_icon_click':
+                await self.handle_add_icon_click(data)
+            elif message_type == 'clear_user_drawings':
+                await self.handle_clear_user_drawings(data)
             else:
                 await self.send_error('Unknown message type')
                 
@@ -90,26 +113,20 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         users = await room_manager.add_user_to_room(self.room_id, self.username, self.channel_name)
         
         print(f"Users in room after join: {users}")
+        print(f"[handle_join] Broadcasting to room group: {self.room_group_name}")
         
-        # First send the current users list to the joining user
-        await self.send(text_data=json.dumps({
-            'type': 'users_update',
-            'action': 'joined',
-            'username': self.username,
-            'users': users,
-            'count': len(users),
-            'timestamp': datetime.now().isoformat()
-        }))
-        
-        # Then notify all OTHER users in the room about the new connection
+        # Broadcast the updated users list to ALL users in the room (including the joiner)
+        # This ensures everyone gets the same update at the same time
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'user_joined',
                 'username': self.username,
-                'users': users
+                'users': users,
+                'sender_channel': self.channel_name
             }
         )
+        print(f"[handle_join] Broadcast sent for {self.username} joining")
     
     async def handle_leave(self, data):
         """Handle user leaving the room"""
@@ -175,32 +192,145 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         )
         print(f"Cursor position broadcast to room {self.room_group_name}")
     
+    # NEW: Drawing-related handlers
+    async def handle_add_icon_click(self, data):
+        """Handle add icon click to activate draw mode"""
+        username = data.get('username', self.username)
+        geometry_type = data.get('geometry_type', 'Polygon')
+        selected_node = data.get('selected_node')
+        
+        print(f"[DRAWING] Add icon clicked - User: {username}, Geometry: {geometry_type}, Room: {self.room_id}")
+        
+        # Broadcast add icon click to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'add_icon_clicked',
+                'username': username,
+                'geometry_type': geometry_type,
+                'selected_node': selected_node,
+                'sender_channel': self.channel_name
+            }
+        )
+    
+    async def handle_geometry_select(self, data):
+        """Handle geometry type selection"""
+        username = data.get('username', self.username)
+        geometry_type = data.get('geometry_type')
+        
+        print(f"[DRAWING] Geometry selected - User: {username}, Type: {geometry_type}, Room: {self.room_id}")
+        
+        # Broadcast geometry selection to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'geometry_selected',
+                'username': username,
+                'geometry_type': geometry_type,
+                'sender_channel': self.channel_name
+            }
+        )
+    
+    async def handle_drawing_start(self, data):
+        """Handle drawing start event"""
+        username = data.get('username', self.username)
+        geometry_type = data.get('geometry_type')
+        start_coordinates = data.get('start_coordinates')
+        drawing_id = data.get('drawing_id')
+        selected_node = data.get('selected_node')
+        
+        print(f"[DRAWING] Drawing started - User: {username}, Type: {geometry_type}, Room: {self.room_id}")
+        
+        # Broadcast drawing start to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'drawing_started',
+                'username': username,
+                'geometry_type': geometry_type,
+                'start_coordinates': start_coordinates,
+                'drawing_id': drawing_id,
+                'selected_node': selected_node,
+                'sender_channel': self.channel_name
+            }
+        )
+    
+    async def handle_drawing_update(self, data):
+        """Handle drawing update event"""
+        username = data.get('username', self.username)
+        coordinates = data.get('coordinates')
+        drawing_id = data.get('drawing_id')
+        geometry_type = data.get('geometry_type')
+        
+        # Don't log every update to avoid spam
+        # print(f"[DRAWING] Drawing update - User: {username}, Room: {self.room_id}")
+        
+        # Broadcast drawing update to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'drawing_updated',
+                'username': username,
+                'coordinates': coordinates,
+                'drawing_id': drawing_id,
+                'geometry_type': geometry_type,
+                'sender_channel': self.channel_name
+            }
+        )
+    
+    async def handle_drawing_end(self, data):
+        """Handle drawing end event"""
+        username = data.get('username', self.username)
+        final_coordinates = data.get('final_coordinates')
+        drawing_id = data.get('drawing_id')
+        geometry_type = data.get('geometry_type')
+        selected_node = data.get('selected_node')
+        
+        print(f"[DRAWING] Drawing ended - User: {username}, Type: {geometry_type}, Room: {self.room_id}")
+        
+        # Broadcast drawing end to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'drawing_ended',
+                'username': username,
+                'final_coordinates': final_coordinates,
+                'drawing_id': drawing_id,
+                'geometry_type': geometry_type,
+                'selected_node': selected_node,
+                'sender_channel': self.channel_name
+            }
+        )
+    
     async def user_joined(self, event):
         """Send user joined notification to WebSocket"""
-        # Don't send the join notification to the user who just joined
-        # They already received it in handle_join
-        if event['username'] != self.username:
-            await self.send(text_data=json.dumps({
-                'type': 'users_update',
-                'action': 'joined',
-                'username': event['username'],
-                'users': event['users'],
-                'count': len(event['users']),
-                'timestamp': datetime.now().isoformat()
-            }))
+        # Send update to ALL users in the room to ensure everyone has the current count
+        print(f"[user_joined] Sending update to {self.username} about {event['username']} joining")
+        print(f"[user_joined] Users in room: {event['users']}, count: {len(event['users'])}")
+        
+        await self.send(text_data=json.dumps({
+            'type': 'users_update',
+            'action': 'joined',
+            'username': event['username'],
+            'users': event['users'],
+            'count': len(event['users']),
+            'timestamp': datetime.now().isoformat()
+        }))
     
     async def user_left(self, event):
         """Send user left notification to WebSocket"""
-        # Don't send the leave notification to the user who is leaving
-        if event['username'] != self.username:
-            await self.send(text_data=json.dumps({
-                'type': 'users_update',
-                'action': 'left',
-                'username': event['username'],
-                'users': event['users'],
-                'count': len(event['users']),
-                'timestamp': datetime.now().isoformat()
-            }))
+        # Send update to all remaining users to ensure everyone has the current count
+        print(f"[user_left] Sending update to {self.username} about {event['username']} leaving")
+        print(f"[user_left] Users remaining: {event['users']}, count: {len(event['users'])}")
+        
+        await self.send(text_data=json.dumps({
+            'type': 'users_update',
+            'action': 'left',
+            'username': event['username'],
+            'users': event['users'],
+            'count': len(event['users']),
+            'timestamp': datetime.now().isoformat()
+        }))
     
     async def cursor_position(self, event):
         """Send cursor position to WebSocket"""
@@ -216,6 +346,66 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             }))
         else:
             print(f"Skipping cursor update for sender: {event['username']}")
+    
+    # NEW: Drawing event broadcasts
+    async def add_icon_clicked(self, event):
+        """Send add icon click to WebSocket"""
+        if event.get('sender_channel') != self.channel_name:
+            await self.send(text_data=json.dumps({
+                'type': 'add_icon_clicked',
+                'username': event['username'],
+                'geometry_type': event['geometry_type'],
+                'selected_node': event['selected_node'],
+                'timestamp': datetime.now().isoformat()
+            }))
+    
+    async def geometry_selected(self, event):
+        """Send geometry selection to WebSocket"""
+        if event.get('sender_channel') != self.channel_name:
+            await self.send(text_data=json.dumps({
+                'type': 'geometry_selected',
+                'username': event['username'],
+                'geometry_type': event['geometry_type'],
+                'timestamp': datetime.now().isoformat()
+            }))
+    
+    async def drawing_started(self, event):
+        """Send drawing start to WebSocket"""
+        if event.get('sender_channel') != self.channel_name:
+            await self.send(text_data=json.dumps({
+                'type': 'drawing_started',
+                'username': event['username'],
+                'geometry_type': event['geometry_type'],
+                'start_coordinates': event['start_coordinates'],
+                'drawing_id': event['drawing_id'],
+                'selected_node': event['selected_node'],
+                'timestamp': datetime.now().isoformat()
+            }))
+    
+    async def drawing_updated(self, event):
+        """Send drawing update to WebSocket"""
+        if event.get('sender_channel') != self.channel_name:
+            await self.send(text_data=json.dumps({
+                'type': 'drawing_updated',
+                'username': event['username'],
+                'coordinates': event['coordinates'],
+                'drawing_id': event['drawing_id'],
+                'geometry_type': event['geometry_type'],
+                'timestamp': datetime.now().isoformat()
+            }))
+    
+    async def drawing_ended(self, event):
+        """Send drawing end to WebSocket"""
+        if event.get('sender_channel') != self.channel_name:
+            await self.send(text_data=json.dumps({
+                'type': 'drawing_ended',
+                'username': event['username'],
+                'final_coordinates': event['final_coordinates'],
+                'drawing_id': event['drawing_id'],
+                'geometry_type': event['geometry_type'],
+                'selected_node': event['selected_node'],
+                'timestamp': datetime.now().isoformat()
+            }))
     
     async def handle_chat_message(self, data):
         """Handle chat messages"""
@@ -267,6 +457,35 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         print(f"[SERVER] Sending message data: {message_data}")
         await self.send(text_data=json.dumps(message_data))
         print(f"[SERVER] Message sent to {self.username}")
+    
+    async def handle_clear_user_drawings(self, data):
+        """Handle request to clear a user's drawings"""
+        username = data.get('username')
+        
+        if not username:
+            await self.send_error('Username is required for clearing drawings')
+            return
+        
+        print(f"[DRAWING] Clearing drawings for user: {username}")
+        
+        # Broadcast clear drawings message
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'clear_drawings',
+                'username': username,
+                'sender_channel': self.channel_name
+            }
+        )
+    
+    async def clear_drawings(self, event):
+        """Send clear drawings message to WebSocket"""
+        if event.get('sender_channel') != self.channel_name:
+            await self.send(text_data=json.dumps({
+                'type': 'clear_user_drawings',
+                'username': event['username'],
+                'timestamp': datetime.now().isoformat()
+            }))
     
     async def send_error(self, error_message):
         """Send error message to WebSocket"""
