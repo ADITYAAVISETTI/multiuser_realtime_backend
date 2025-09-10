@@ -90,6 +90,12 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 await self.handle_add_icon_click(data)
             elif message_type == 'clear_user_drawings':
                 await self.handle_clear_user_drawings(data)
+            elif message_type == 'region_deleted':
+                await self.handle_region_deleted(data)
+            elif message_type == 'region_edit_start':
+                await self.handle_region_edit_start(data)
+            elif message_type == 'region_edit_end':
+                await self.handle_region_edit_end(data)
             else:
                 await self.send_error('Unknown message type')
                 
@@ -486,6 +492,135 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'username': event['username'],
                 'timestamp': datetime.now().isoformat()
             }))
+    
+    async def handle_region_deleted(self, data):
+        """Handle region deletion event"""
+        username = data.get('username', self.username)
+        region_name = data.get('region_name')
+        region_data = data.get('region_data')
+        
+        print(f"[REGION DELETE] Region '{region_name}' deleted by user: {username} in room {self.room_id}")
+        print(f"[REGION DELETE] Region data: {region_data}")
+        
+        # Broadcast region deletion to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'region_deleted_broadcast',
+                'username': username,
+                'region_name': region_name,
+                'region_data': region_data,
+                'sender_channel': self.channel_name
+            }
+        )
+        print(f"[REGION DELETE] Broadcast sent to room group: {self.room_group_name}")
+
+    async def region_deleted_broadcast(self, event):
+        """Send region deletion to WebSocket"""
+        # Don't send back to the sender - only to other users
+        if event.get('sender_channel') != self.channel_name:
+            print(f"[REGION DELETE] Sending deletion message to user {self.username}")
+            await self.send(text_data=json.dumps({
+                'type': 'region_deleted',
+                'username': event['username'],
+                'region_name': event['region_name'],
+                'region_data': event['region_data'],
+                'timestamp': datetime.now().isoformat()
+            }))
+        else:
+            print(f"[REGION DELETE] Skipping sender {self.username}")
+
+    async def handle_region_edit_start(self, data):
+        """Handle region edit start event"""
+        username = data.get('username', self.username)
+        region_id = data.get('region_id')
+        region_name = data.get('region_name')
+        region_data = data.get('region_data')
+        coordinates = data.get('coordinates')
+        geometry_type = data.get('geometry_type')
+        
+        print(f"[REGION EDIT START] Region '{region_name}' (ID: {region_id}) being edited by user: {username} in room {self.room_id}")
+        print(f"[REGION EDIT START] Geometry type: {geometry_type}")
+        
+        # Broadcast region edit start to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'region_edit_start_broadcast',
+                'username': username,
+                'region_id': region_id,
+                'region_name': region_name,
+                'region_data': region_data,
+                'coordinates': coordinates,
+                'geometry_type': geometry_type,
+                'sender_channel': self.channel_name
+            }
+        )
+        print(f"[REGION EDIT START] Broadcast sent to room group: {self.room_group_name}")
+
+    async def region_edit_start_broadcast(self, event):
+        """Send region edit start to WebSocket"""
+        # Don't send back to the sender - only to other users
+        if event.get('sender_channel') != self.channel_name:
+            print(f"[REGION EDIT START] Sending edit start message to user {self.username}")
+            await self.send(text_data=json.dumps({
+                'type': 'region_edit_start',
+                'username': event['username'],
+                'region_id': event['region_id'],
+                'region_name': event['region_name'],
+                'region_data': event['region_data'],
+                'coordinates': event['coordinates'],
+                'geometry_type': event['geometry_type'],
+                'timestamp': datetime.now().isoformat()
+            }))
+        else:
+            print(f"[REGION EDIT START] Skipping sender {self.username}")
+
+    async def handle_region_edit_end(self, data):
+        """Handle region edit end event"""
+        username = data.get('username', self.username)
+        region_id = data.get('region_id')
+        region_name = data.get('region_name')
+        region_data = data.get('region_data')
+        final_coordinates = data.get('final_coordinates')
+        geometry_type = data.get('geometry_type')
+        
+        print(f"[REGION EDIT END] Region '{region_name}' (ID: {region_id}) edit completed by user: {username} in room {self.room_id}")
+        print(f"[REGION EDIT END] Final coordinates: {final_coordinates}")
+        
+        # Broadcast region edit end to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'region_edit_end_broadcast',
+                'username': username,
+                'region_id': region_id,
+                'region_name': region_name,
+                'region_data': region_data,
+                'final_coordinates': final_coordinates,
+                'geometry_type': geometry_type,
+                'sender_channel': self.channel_name
+            }
+        )
+        print(f"[REGION EDIT END] Broadcast sent to room group: {self.room_group_name}")
+
+    async def region_edit_end_broadcast(self, event):
+        """Send region edit end to WebSocket"""
+        # Don't send back to the sender - only to other users
+        if event.get('sender_channel') != self.channel_name:
+            print(f"[REGION EDIT END] Sending edit end message to user {self.username}")
+            await self.send(text_data=json.dumps({
+                'type': 'region_edit_end',
+                'username': event['username'],
+                'region_id': event['region_id'],
+                'region_name': event['region_name'],
+                'region_data': event['region_data'],
+                'final_coordinates': event['final_coordinates'],
+                'geometry_type': event['geometry_type'],
+                'timestamp': datetime.now().isoformat()
+            }))
+        else:
+            print(f"[REGION EDIT END] Skipping sender {self.username}")
     
     async def send_error(self, error_message):
         """Send error message to WebSocket"""
