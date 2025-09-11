@@ -96,6 +96,10 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 await self.handle_region_edit_start(data)
             elif message_type == 'region_edit_end':
                 await self.handle_region_edit_end(data)
+            elif message_type == 'style_change':
+                await self.handle_style_change(data)
+            elif message_type == 'arrow_direction_selected':
+                await self.handle_arrow_direction_selected(data)
             else:
                 await self.send_error('Unknown message type')
                 
@@ -237,6 +241,24 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             }
         )
     
+    async def handle_arrow_direction_selected(self, data):
+        """Handle arrow direction selection"""
+        username = data.get('username', self.username)
+        arrow_direction = data.get('arrow_direction')
+        
+        print(f"[DRAWING] Arrow direction selected - User: {username}, Direction: {arrow_direction}, Room: {self.room_id}")
+        
+        # Broadcast arrow direction selection to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'arrow_direction_selected_broadcast',
+                'username': username,
+                'arrow_direction': arrow_direction,
+                'sender_channel': self.channel_name
+            }
+        )
+    
     async def handle_drawing_start(self, data):
         """Handle drawing start event"""
         username = data.get('username', self.username)
@@ -372,6 +394,16 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'type': 'geometry_selected',
                 'username': event['username'],
                 'geometry_type': event['geometry_type'],
+                'timestamp': datetime.now().isoformat()
+            }))
+    
+    async def arrow_direction_selected_broadcast(self, event):
+        """Send arrow direction selection to WebSocket"""
+        if event.get('sender_channel') != self.channel_name:
+            await self.send(text_data=json.dumps({
+                'type': 'arrow_direction_selected',
+                'username': event['username'],
+                'arrow_direction': event['arrow_direction'],
                 'timestamp': datetime.now().isoformat()
             }))
     
@@ -603,6 +635,43 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             }
         )
         print(f"[REGION EDIT END] Broadcast sent to room group: {self.room_group_name}")
+
+    async def handle_style_change(self, data):
+        """Handle style change event"""
+        username = data.get('username', self.username)
+        feature_id = data.get('feature_id')
+        style_changes = data.get('style_changes')
+        
+        print(f"[STYLE CHANGE] Feature '{feature_id}' style changed by user: {username} in room {self.room_id}")
+        print(f"[STYLE CHANGE] Style changes: {style_changes}")
+        
+        # Broadcast style change to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'style_change_broadcast',
+                'username': username,
+                'feature_id': feature_id,
+                'style_changes': style_changes,
+                'sender_channel': self.channel_name
+            }
+        )
+        print(f"[STYLE CHANGE] Broadcast sent to room group: {self.room_group_name}")
+
+    async def style_change_broadcast(self, event):
+        """Send style change to WebSocket"""
+        # Don't send back to the sender - only to other users
+        if event.get('sender_channel') != self.channel_name:
+            print(f"[STYLE CHANGE] Sending style change message to user {self.username}")
+            await self.send(text_data=json.dumps({
+                'type': 'style_change',
+                'username': event['username'],
+                'feature_id': event['feature_id'],
+                'style_changes': event['style_changes'],
+                'timestamp': datetime.now().isoformat()
+            }))
+        else:
+            print(f"[STYLE CHANGE] Skipping sender {self.username}")
 
     async def region_edit_end_broadcast(self, event):
         """Send region edit end to WebSocket"""
