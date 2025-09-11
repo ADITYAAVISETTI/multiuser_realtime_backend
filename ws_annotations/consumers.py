@@ -530,9 +530,18 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         username = data.get('username', self.username)
         region_name = data.get('region_name')
         region_data = data.get('region_data')
+        feature_id = data.get('feature_id')  # Extract feature ID if provided
         
         print(f"[REGION DELETE] Region '{region_name}' deleted by user: {username} in room {self.room_id}")
+        print(f"[REGION DELETE] Feature ID (JSON): {feature_id if feature_id else 'NOT PROVIDED'}")
         print(f"[REGION DELETE] Region data: {region_data}")
+        
+        # Extract feature ID from region_data if not provided directly
+        if not feature_id and region_data:
+            if isinstance(region_data, dict):
+                feature_id = region_data.get('featureJsonId') or region_data.get('featureId')
+                if feature_id:
+                    print(f"[REGION DELETE] Extracted feature ID from region_data: {feature_id}")
         
         # Broadcast region deletion to all OTHER users in the room
         await self.channel_layer.group_send(
@@ -542,6 +551,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'username': username,
                 'region_name': region_name,
                 'region_data': region_data,
+                'feature_id': feature_id,  # Include feature_id in broadcast
                 'sender_channel': self.channel_name
             }
         )
@@ -557,6 +567,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'username': event['username'],
                 'region_name': event['region_name'],
                 'region_data': event['region_data'],
+                'feature_id': event.get('feature_id'),  # Include feature_id
                 'timestamp': datetime.now().isoformat()
             }))
         else:
@@ -568,11 +579,25 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         region_id = data.get('region_id')
         region_name = data.get('region_name')
         region_data = data.get('region_data')
+        feature_id = data.get('feature_id')  # JSON ID from frontend
         coordinates = data.get('coordinates')
         geometry_type = data.get('geometry_type')
+        original_coordinates = data.get('original_coordinates')  # Original coordinates before edit
         
-        print(f"[REGION EDIT START] Region '{region_name}' (ID: {region_id}) being edited by user: {username} in room {self.room_id}")
+        print(f"[REGION EDIT START] Region '{region_name}' being edited by user: {username} in room {self.room_id}")
+        print(f"[REGION EDIT START] Feature ID (JSON): {feature_id} - THIS IS THE PRIMARY IDENTIFIER")
+        print(f"[REGION EDIT START] Region ID (data.id): {region_id}")
+        print(f"[REGION EDIT START] Region data: {region_data}")
         print(f"[REGION EDIT START] Geometry type: {geometry_type}")
+        print(f"[REGION EDIT START] Has original coordinates: {'Yes' if original_coordinates else 'No'}")
+        if original_coordinates:
+            print(f"[REGION EDIT START] Original coordinates sample: {str(original_coordinates)[:100]}...")
+        
+        # Validate feature ID
+        if not feature_id:
+            print(f"[REGION EDIT START] WARNING: No feature_id provided! This may cause issues with duplicate named regions")
+        else:
+            print(f"[REGION EDIT START] ✓ Feature ID present: {feature_id}")
         
         # Broadcast region edit start to all OTHER users in the room
         await self.channel_layer.group_send(
@@ -583,8 +608,10 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'region_id': region_id,
                 'region_name': region_name,
                 'region_data': region_data,
+                'feature_id': feature_id,  # Include feature_id in broadcast
                 'coordinates': coordinates,
                 'geometry_type': geometry_type,
+                'original_coordinates': original_coordinates,  # Pass through original coordinates
                 'sender_channel': self.channel_name
             }
         )
@@ -601,8 +628,10 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'region_id': event['region_id'],
                 'region_name': event['region_name'],
                 'region_data': event['region_data'],
+                'feature_id': event.get('feature_id'),  # Include feature_id
                 'coordinates': event['coordinates'],
                 'geometry_type': event['geometry_type'],
+                'original_coordinates': event.get('original_coordinates'),  # Pass through original coordinates
                 'timestamp': datetime.now().isoformat()
             }))
         else:
@@ -614,11 +643,36 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         region_id = data.get('region_id')
         region_name = data.get('region_name')
         region_data = data.get('region_data')
+        feature_id = data.get('feature_id')  # JSON ID from frontend
         final_coordinates = data.get('final_coordinates')
         geometry_type = data.get('geometry_type')
+        original_coordinates = data.get('original_coordinates')  # Original coordinates for proper matching
         
-        print(f"[REGION EDIT END] Region '{region_name}' (ID: {region_id}) edit completed by user: {username} in room {self.room_id}")
-        print(f"[REGION EDIT END] Final coordinates: {final_coordinates}")
+        print(f"[REGION EDIT END] Region '{region_name}' edit completed by user: {username} in room {self.room_id}")
+        print(f"[REGION EDIT END] Feature ID (JSON): {feature_id} - THIS IS THE PRIMARY IDENTIFIER")
+        print(f"[REGION EDIT END] Region ID (data.id): {region_id}")
+        print(f"[REGION EDIT END] Region data: {region_data}")
+        print(f"[REGION EDIT END] Geometry type: {geometry_type}")
+        print(f"[REGION EDIT END] Final coordinates length: {len(final_coordinates) if final_coordinates else 0}")
+        print(f"[REGION EDIT END] Has original coordinates: {'Yes' if original_coordinates else 'No'}")
+        if original_coordinates:
+            print(f"[REGION EDIT END] Original coordinates length: {len(original_coordinates)}")
+        
+        # Validate feature ID
+        if not feature_id:
+            print(f"[REGION EDIT END] WARNING: No feature_id provided! This will cause issues with duplicate named regions")
+            print(f"[REGION EDIT END] Will fall back to name-based matching which is unreliable with duplicates")
+        else:
+            print(f"[REGION EDIT END] ✓ Feature ID present: {feature_id}")
+        
+        # Validate that we have essential data
+        if not region_name and not feature_id:
+            print(f"[REGION EDIT END] ERROR: Missing both region_name and feature_id - cannot identify region!")
+        
+        if not final_coordinates:
+            print(f"[REGION EDIT END] ERROR: No final coordinates provided!")
+            await self.send_error('Region edit end missing final coordinates')
+            return
         
         # Broadcast region edit end to all OTHER users in the room
         await self.channel_layer.group_send(
@@ -629,8 +683,10 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'region_id': region_id,
                 'region_name': region_name,
                 'region_data': region_data,
+                'feature_id': feature_id,  # Include feature_id in broadcast
                 'final_coordinates': final_coordinates,
                 'geometry_type': geometry_type,
+                'original_coordinates': original_coordinates,  # Pass through for proper matching
                 'sender_channel': self.channel_name
             }
         )
@@ -677,19 +733,32 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         """Send region edit end to WebSocket"""
         # Don't send back to the sender - only to other users
         if event.get('sender_channel') != self.channel_name:
-            print(f"[REGION EDIT END] Sending edit end message to user {self.username}")
-            await self.send(text_data=json.dumps({
+            print(f"[REGION EDIT END BROADCAST] Sending edit end message to user {self.username}")
+            print(f"[REGION EDIT END BROADCAST] Event region: {event.get('region_name')} (ID: {event.get('feature_id')})")
+            print(f"[REGION EDIT END BROADCAST] Sender: {event.get('username')}")
+            
+            # Create message with all necessary data
+            message_data = {
                 'type': 'region_edit_end',
                 'username': event['username'],
-                'region_id': event['region_id'],
-                'region_name': event['region_name'],
-                'region_data': event['region_data'],
-                'final_coordinates': event['final_coordinates'],
-                'geometry_type': event['geometry_type'],
+                'region_id': event.get('region_id'),
+                'region_name': event.get('region_name'),
+                'region_data': event.get('region_data'),
+                'feature_id': event.get('feature_id'),  # Include feature_id
+                'final_coordinates': event.get('final_coordinates'),
+                'geometry_type': event.get('geometry_type'),
+                'original_coordinates': event.get('original_coordinates'),  # Include original coordinates for matching
                 'timestamp': datetime.now().isoformat()
-            }))
+            }
+            
+            # Validate message before sending
+            if not message_data.get('final_coordinates'):
+                print(f"[REGION EDIT END BROADCAST] WARNING: No coordinates in broadcast message!")
+            
+            await self.send(text_data=json.dumps(message_data))
+            print(f"[REGION EDIT END BROADCAST] Message sent to {self.username}")
         else:
-            print(f"[REGION EDIT END] Skipping sender {self.username}")
+            print(f"[REGION EDIT END BROADCAST] Correctly skipping sender {self.username}")
     
     async def send_error(self, error_message):
         """Send error message to WebSocket"""
