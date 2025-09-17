@@ -124,6 +124,8 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 await self.handle_add_icon_click(data)
             elif message_type == 'clear_user_drawings':
                 await self.handle_clear_user_drawings(data)
+            elif message_type == 'drawing_cleanup':
+                await self.handle_drawing_cleanup(data)
             elif message_type == 'region_deleted':
                 await self.handle_region_deleted(data)
             elif message_type == 'region_edit_start':
@@ -482,6 +484,47 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             print(f"[DRAWING END ERROR] Failed to broadcast drawing end: {str(e)}")
             await self.send_error(f'Failed to broadcast drawing end: {str(e)}')
     
+    async def handle_drawing_cleanup(self, data):
+        """Handle drawing cleanup event when user switches tools/modes"""
+        username = data.get('username', self.username)
+        user_id = data.get('userId', self.user_id)
+        drawing_id = data.get('drawing_id')
+        
+        # Validate required fields
+        if not all([username, user_id, drawing_id]):
+            print(f"[DRAWING CLEANUP ERROR] Missing required fields - User: {username}, ID: {user_id}, DrawingID: {drawing_id}")
+            await self.send_error('Missing required fields for drawing cleanup')
+            return
+        
+        print(f"[DRAWING] Drawing cleanup - User: {username} (ID: {user_id}), DrawingID: {drawing_id}, Room: {self.room_id}")
+        
+        # Remove from active drawings tracking if exists
+        if drawing_id in self.active_drawings:
+            drawing_info = self.active_drawings[drawing_id]
+            duration = datetime.now() - drawing_info['started_at']
+            print(f"[DRAWING] Cleaning up incomplete drawing {drawing_id} after {duration.total_seconds():.2f} seconds")
+            del self.active_drawings[drawing_id]
+        
+        # Get the display username for this user
+        display_username = await room_manager.get_display_username_for_user(self.room_id, user_id, username)
+        
+        # Broadcast drawing cleanup to all OTHER users in the room
+        try:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'drawing_cleanup',
+                    'username': display_username,
+                    'user_id': user_id,
+                    'drawing_id': drawing_id,
+                    'sender_channel': self.channel_name
+                }
+            )
+            print(f"[DRAWING] Successfully broadcast drawing cleanup for {username} (DrawingID: {drawing_id})")
+        except Exception as e:
+            print(f"[DRAWING CLEANUP ERROR] Failed to broadcast drawing cleanup: {str(e)}")
+            await self.send_error(f'Failed to broadcast drawing cleanup: {str(e)}')
+    
     async def user_joined(self, event):
         """Send user joined notification to WebSocket"""
         # Send update to ALL users in the room to ensure everyone has the current count
@@ -616,6 +659,19 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 
             await self.send(text_data=json.dumps(message_data))
     
+    async def drawing_cleanup(self, event):
+        """Send drawing cleanup to WebSocket"""
+        if event.get('sender_channel') != self.channel_name:
+            message_data = {
+                'type': 'drawing_cleanup',
+                'username': event['username'],
+                'user_id': event.get('user_id'),
+                'drawing_id': event['drawing_id'],
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            await self.send(text_data=json.dumps(message_data))
+    
     async def handle_chat_message(self, data):
         """Handle chat messages with rate limiting"""
         # Apply rate limiting to prevent chat spam
@@ -720,13 +776,13 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         feature_id = data.get('feature_id')  # Extract feature ID if provided
         
         print(f"[REGION DELETE] Region '{region_name}' deleted by user: {username} (ID: {user_id}) in room {self.room_id}")
-        print(f"[REGION DELETE] Feature ID (JSON): {feature_id if feature_id else 'NOT PROVIDED'}")
+        print(f"[REGION DELETE] Feature ID: {feature_id if feature_id else 'NOT PROVIDED'}")
         print(f"[REGION DELETE] Region data: {region_data}")
         
         # Extract feature ID from region_data if not provided directly
         if not feature_id and region_data:
             if isinstance(region_data, dict):
-                feature_id = region_data.get('featureJsonId') or region_data.get('featureId')
+                feature_id = region_data.get('featureId')
                 if feature_id:
                     print(f"[REGION DELETE] Extracted feature ID from region_data: {feature_id}")
         
@@ -773,13 +829,13 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         region_id = data.get('region_id')
         region_name = data.get('region_name')
         region_data = data.get('region_data')
-        feature_id = data.get('feature_id')  # JSON ID from frontend
+        feature_id = data.get('feature_id')  # Feature ID from frontend
         coordinates = data.get('coordinates')
         geometry_type = data.get('geometry_type')
         original_coordinates = data.get('original_coordinates')  # Original coordinates before edit
         
         print(f"[REGION EDIT START] Region '{region_name}' being edited by user: {username} (ID: {user_id}) in room {self.room_id}")
-        print(f"[REGION EDIT START] Feature ID (JSON): {feature_id} - THIS IS THE PRIMARY IDENTIFIER")
+        print(f"[REGION EDIT START] Feature ID: {feature_id} - THIS IS THE PRIMARY IDENTIFIER")
         print(f"[REGION EDIT START] Region ID (data.id): {region_id}")
         print(f"[REGION EDIT START] Region data: {region_data}")
         print(f"[REGION EDIT START] Geometry type: {geometry_type}")
@@ -843,13 +899,13 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         region_id = data.get('region_id')
         region_name = data.get('region_name')
         region_data = data.get('region_data')
-        feature_id = data.get('feature_id')  # JSON ID from frontend
+        feature_id = data.get('feature_id')  # Feature ID from frontend
         final_coordinates = data.get('final_coordinates')
         geometry_type = data.get('geometry_type')
         original_coordinates = data.get('original_coordinates')  # Original coordinates for proper matching
         
         print(f"[REGION EDIT END] Region '{region_name}' edit completed by user: {username} (ID: {user_id}) in room {self.room_id}")
-        print(f"[REGION EDIT END] Feature ID (JSON): {feature_id} - THIS IS THE PRIMARY IDENTIFIER")
+        print(f"[REGION EDIT END] Feature ID: {feature_id} - THIS IS THE PRIMARY IDENTIFIER")
         print(f"[REGION EDIT END] Region ID (data.id): {region_id}")
         print(f"[REGION EDIT END] Region data: {region_data}")
         print(f"[REGION EDIT END] Geometry type: {geometry_type}")
