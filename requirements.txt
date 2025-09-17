@@ -1,4 +1,6 @@
 Django>=4.0.0
 channels>=3.0.4
+channels_redis>=3.4.0
 daphne>=3.0.2
 django-cors-headers>=3.10.0
+redis>=4.0.0

@@ -78,12 +78,23 @@ ASGI_APPLICATION = 'websocket_project.asgi.application'
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# Channels
+# Channels with Redis - Compatible with channels-redis 3.3.1
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('redis', 6379)],
+            "capacity": 2000,
+            "expiry": 30,
+            "group_expiry": 1800,
+        },
     },
 }
+
+# Rate limiting settings for high concurrency
+RATE_LIMIT_CURSOR_UPDATES = 20  # Updates per second
+RATE_LIMIT_DRAWING_UPDATES = 10  # Drawing updates per second
+RATE_LIMIT_CHAT_MESSAGES = 5    # Chat messages per second
 
 
 # Database
