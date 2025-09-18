@@ -36,7 +36,7 @@ class RoomManager:
                     'id': str(user_id),
                     'username': username
                 })
-                print(f"[RoomManager] Added user to room: {username} (ID: {user_id})")
+                # print(f"[RoomManager] Added user to room: {username} (ID: {user_id})")
             else:
                 print(f"[RoomManager] User already exists: {username} (ID: {user_id})")
             
@@ -46,9 +46,9 @@ class RoomManager:
             self.user_channels[str(user_id)].add(channel_name)
             
             # Debug: Print current room state
-            print(f"[RoomManager] Room {room_id} users: {self.rooms[room_id]}")
+            # print(f"[RoomManager] Room {room_id} users: {self.rooms[room_id]}")
             display_names = self._get_display_usernames(self.rooms[room_id])
-            print(f"[RoomManager] Display names: {display_names}")
+            # print(f"[RoomManager] Display names: {display_names}")
             
             # Return list of usernames for display (showing username + id for duplicates)
             return display_names

@@ -29,11 +29,11 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         if self.room_id not in self.room_connections:
             self.room_connections[self.room_id] = []
         
-        print(f"WebSocket connected to room {self.room_id}")
+        # print(f"WebSocket connected to room {self.room_id}")
     
     async def disconnect(self, close_code):
         """Handle WebSocket disconnection"""
-        print(f"WebSocket disconnecting from room {self.room_id}, user: {self.username}")
+        # print(f"WebSocket disconnecting from room {self.room_id}, user: {self.username}")
         
         # Remove user from room connections
         if self.username and self.room_id in self.room_connections:
@@ -62,7 +62,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             data = json.loads(text_data)
             message_type = data.get('type')
             
-            print(f"Received message: {data}")
+            # print(f"Received message: {data}")
             
             if message_type == 'join':
                 await self.handle_join(data)
@@ -76,7 +76,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         except json.JSONDecodeError:
             await self.send_error('Invalid JSON format')
         except Exception as e:
-            print(f"Error processing message: {str(e)}")
+            # print(f"Error processing message: {str(e)}")
             await self.send_error(f'Error processing message: {str(e)}')
     
     async def handle_join(self, data):
@@ -87,7 +87,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             await self.send_error('Username is required')
             return
         
-        print(f"User {self.username} joining room {self.room_id}")
+        # print(f"User {self.username} joining room {self.room_id}")
         
         # Add user to room connections
         if self.username not in self.room_connections[self.room_id]:

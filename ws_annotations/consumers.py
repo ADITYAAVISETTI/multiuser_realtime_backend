@@ -33,7 +33,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         
         await self.accept()
         
-        print(f"WebSocket connected to room {self.room_id}")
+        # print(f"WebSocket connected to room {self.room_id}")
     
     def is_rate_limited(self, message_type: str) -> bool:
         """Check if message should be rate limited for performance optimization"""
@@ -61,7 +61,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
     
     async def disconnect(self, close_code):
         """Handle WebSocket disconnection"""
-        print(f"WebSocket disconnecting from room {self.room_id}, user: {self.username} (ID: {self.user_id})")
+        # print(f"WebSocket disconnecting from room {self.room_id}, user: {self.username} (ID: {self.user_id})")
         
         # Remove user from room connections using user ID
         if self.user_id:
@@ -99,7 +99,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             data = json.loads(text_data)
             message_type = data.get('type')
             
-            print(f"Received message: {data}")
+            # print(f"Received message: {data}")
             
             if message_type == 'join':
                 await self.handle_join(data)
@@ -142,7 +142,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         except json.JSONDecodeError:
             await self.send_error('Invalid JSON format')
         except Exception as e:
-            print(f"Error processing message: {str(e)}")
+            # print(f"Error processing message: {str(e)}")
             await self.send_error(f'Error processing message: {str(e)}')
     
     async def handle_join(self, data):
@@ -158,13 +158,13 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             await self.send_error('User ID is required for verification')
             return
         
-        print(f"User {self.username} (ID: {self.user_id}) joining room {self.room_id}")
+        # print(f"User {self.username} (ID: {self.user_id}) joining room {self.room_id}")
         
         # Add user to room connections using user ID for duplicate detection
         users = await room_manager.add_user_to_room(self.room_id, self.user_id, self.username, self.channel_name)
         
-        print(f"Users in room after join: {users}")
-        print(f"[handle_join] Broadcasting to room group: {self.room_group_name}")
+        # print(f"Users in room after join: {users}")
+        # print(f"[handle_join] Broadcasting to room group: {self.room_group_name}")
         
         # Broadcast the updated users list to ALL users in the room (including the joiner)
         # This ensures everyone gets the same update at the same time
@@ -177,7 +177,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'sender_channel': self.channel_name
             }
         )
-        print(f"[handle_join] Broadcast sent for {self.username} joining")
+        # print(f"[handle_join] Broadcast sent for {self.username} joining")
     
     async def handle_leave(self, data):
         """Handle user leaving the room"""
@@ -242,7 +242,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         
         # Get the display username for this user (handles duplicates with ID suffixes)
         display_username = await room_manager.get_display_username_for_user(self.room_id, user_id, username)
-        print(f"Cursor display username: {display_username}")
+        # print(f"Cursor display username: {display_username}")
         
         # Broadcast cursor position to all OTHER users in the room
         await self.channel_layer.group_send(
@@ -256,7 +256,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'sender_channel': self.channel_name
             }
         )
-        print(f"Cursor position broadcast to room {self.room_group_name}")
+        # print(f"Cursor position broadcast to room {self.room_group_name}")
     
     # NEW: Drawing-related handlers
     async def handle_add_icon_click(self, data):
@@ -266,11 +266,11 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         geometry_type = data.get('geometry_type', 'Polygon')
         selected_node = data.get('selected_node')
         
-        print(f"[DRAWING] Add icon clicked - User: {username} (ID: {user_id}), Geometry: {geometry_type}, Room: {self.room_id}")
+        # print(f"[DRAWING] Add icon clicked - User: {username} (ID: {user_id}), Geometry: {geometry_type}, Room: {self.room_id}")
         
         # Get the display username for this user (handles duplicates with ID suffixes)
         display_username = await room_manager.get_display_username_for_user(self.room_id, user_id, username)
-        print(f"[DRAWING] Add icon display username: {display_username}")
+        # print(f"[DRAWING] Add icon display username: {display_username}")
         
         # Broadcast add icon click to all OTHER users in the room
         await self.channel_layer.group_send(
@@ -291,7 +291,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         user_id = data.get('userId', self.user_id)
         geometry_type = data.get('geometry_type')
         
-        print(f"[DRAWING] Geometry selected - User: {username} (ID: {user_id}), Type: {geometry_type}, Room: {self.room_id}")
+        # print(f"[DRAWING] Geometry selected - User: {username} (ID: {user_id}), Type: {geometry_type}, Room: {self.room_id}")
         
         # Get the display username for this user (handles duplicates with ID suffixes)
         display_username = await room_manager.get_display_username_for_user(self.room_id, user_id, username)
@@ -314,7 +314,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         user_id = data.get('userId', self.user_id)
         arrow_direction = data.get('arrow_direction')
         
-        print(f"[DRAWING] Arrow direction selected - User: {username} (ID: {user_id}), Direction: {arrow_direction}, Room: {self.room_id}")
+        # print(f"[DRAWING] Arrow direction selected - User: {username} (ID: {user_id}), Direction: {arrow_direction}, Room: {self.room_id}")
         
         # Get the display username for this user (handles duplicates with ID suffixes)
         display_username = await room_manager.get_display_username_for_user(self.room_id, user_id, username)
@@ -343,11 +343,11 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         
         # Validate required fields
         if not all([username, user_id, geometry_type, drawing_id]):
-            print(f"[DRAWING ERROR] Missing required fields - User: {username}, ID: {user_id}, Type: {geometry_type}, DrawingID: {drawing_id}")
+            # print(f"[DRAWING ERROR] Missing required fields - User: {username}, ID: {user_id}, Type: {geometry_type}, DrawingID: {drawing_id}")
             await self.send_error('Missing required fields for drawing start')
             return
         
-        print(f"[DRAWING] Drawing started - User: {username} (ID: {user_id}), Type: {geometry_type}, DrawingID: {drawing_id}, Room: {self.room_id}")
+        # print(f"[DRAWING] Drawing started - User: {username} (ID: {user_id}), Type: {geometry_type}, DrawingID: {drawing_id}, Room: {self.room_id}")
         
         # Track this drawing for the user
         self.active_drawings[drawing_id] = {
@@ -376,9 +376,9 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                     'sender_channel': self.channel_name
                 }
             )
-            print(f"[DRAWING] Successfully broadcast drawing start for {username} (DrawingID: {drawing_id})")
+            # print(f"[DRAWING] Successfully broadcast drawing start for {username} (DrawingID: {drawing_id})")
         except Exception as e:
-            print(f"[DRAWING ERROR] Failed to broadcast drawing start: {str(e)}")
+            # print(f"[DRAWING ERROR] Failed to broadcast drawing start: {str(e)}")
             await self.send_error(f'Failed to broadcast drawing start: {str(e)}')
     
     async def handle_drawing_update(self, data):
@@ -439,23 +439,23 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         
         # Validate required fields
         if not all([username, user_id, geometry_type, drawing_id]):
-            print(f"[DRAWING END ERROR] Missing required fields - User: {username}, ID: {user_id}, Type: {geometry_type}, DrawingID: {drawing_id}")
+            # print(f"[DRAWING END ERROR] Missing required fields - User: {username}, ID: {user_id}, Type: {geometry_type}, DrawingID: {drawing_id}")
             await self.send_error('Missing required fields for drawing end')
             return
         
         # Validate final coordinates
         if not final_coordinates:
-            print(f"[DRAWING END ERROR] Missing final coordinates for {username} (DrawingID: {drawing_id})")
+            # print(f"[DRAWING END ERROR] Missing final coordinates for {username} (DrawingID: {drawing_id})")
             await self.send_error('Missing final coordinates for drawing end')
             return
         
-        print(f"[DRAWING] Drawing ended - User: {username} (ID: {user_id}), Type: {geometry_type}, DrawingID: {drawing_id}, Room: {self.room_id}")
+        # print(f"[DRAWING] Drawing ended - User: {username} (ID: {user_id}), Type: {geometry_type}, DrawingID: {drawing_id}, Room: {self.room_id}")
         
         # Remove from active drawings tracking
         if drawing_id in self.active_drawings:
             drawing_info = self.active_drawings[drawing_id]
             duration = datetime.now() - drawing_info['started_at']
-            print(f"[DRAWING] Drawing {drawing_id} completed in {duration.total_seconds():.2f} seconds")
+            # print(f"[DRAWING] Drawing {drawing_id} completed in {duration.total_seconds():.2f} seconds")
             del self.active_drawings[drawing_id]
         else:
             print(f"[DRAWING WARNING] Drawing {drawing_id} not found in active drawings tracking")
@@ -479,9 +479,9 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                     'sender_channel': self.channel_name
                 }
             )
-            print(f"[DRAWING] Successfully broadcast drawing end for {username} (DrawingID: {drawing_id})")
+            # print(f"[DRAWING] Successfully broadcast drawing end for {username} (DrawingID: {drawing_id})")
         except Exception as e:
-            print(f"[DRAWING END ERROR] Failed to broadcast drawing end: {str(e)}")
+            # print(f"[DRAWING END ERROR] Failed to broadcast drawing end: {str(e)}")
             await self.send_error(f'Failed to broadcast drawing end: {str(e)}')
     
     async def handle_drawing_cleanup(self, data):
@@ -492,17 +492,17 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         
         # Validate required fields
         if not all([username, user_id, drawing_id]):
-            print(f"[DRAWING CLEANUP ERROR] Missing required fields - User: {username}, ID: {user_id}, DrawingID: {drawing_id}")
+            # print(f"[DRAWING CLEANUP ERROR] Missing required fields - User: {username}, ID: {user_id}, DrawingID: {drawing_id}")
             await self.send_error('Missing required fields for drawing cleanup')
             return
         
-        print(f"[DRAWING] Drawing cleanup - User: {username} (ID: {user_id}), DrawingID: {drawing_id}, Room: {self.room_id}")
+        # print(f"[DRAWING] Drawing cleanup - User: {username} (ID: {user_id}), DrawingID: {drawing_id}, Room: {self.room_id}")
         
         # Remove from active drawings tracking if exists
         if drawing_id in self.active_drawings:
             drawing_info = self.active_drawings[drawing_id]
             duration = datetime.now() - drawing_info['started_at']
-            print(f"[DRAWING] Cleaning up incomplete drawing {drawing_id} after {duration.total_seconds():.2f} seconds")
+            # print(f"[DRAWING] Cleaning up incomplete drawing {drawing_id} after {duration.total_seconds():.2f} seconds")
             del self.active_drawings[drawing_id]
         
         # Get the display username for this user
@@ -520,16 +520,16 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                     'sender_channel': self.channel_name
                 }
             )
-            print(f"[DRAWING] Successfully broadcast drawing cleanup for {username} (DrawingID: {drawing_id})")
+            # print(f"[DRAWING] Successfully broadcast drawing cleanup for {username} (DrawingID: {drawing_id})")
         except Exception as e:
-            print(f"[DRAWING CLEANUP ERROR] Failed to broadcast drawing cleanup: {str(e)}")
+            # print(f"[DRAWING CLEANUP ERROR] Failed to broadcast drawing cleanup: {str(e)}")
             await self.send_error(f'Failed to broadcast drawing cleanup: {str(e)}')
     
     async def user_joined(self, event):
         """Send user joined notification to WebSocket"""
         # Send update to ALL users in the room to ensure everyone has the current count
-        print(f"[user_joined] Sending update to {self.username} about {event['username']} joining")
-        print(f"[user_joined] Users in room: {event['users']}, count: {len(event['users'])}")
+        # print(f"[user_joined] Sending update to {self.username} about {event['username']} joining")
+        # print(f"[user_joined] Users in room: {event['users']}, count: {len(event['users'])}")
         
         await self.send(text_data=json.dumps({
             'type': 'users_update',
@@ -543,8 +543,8 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
     async def user_left(self, event):
         """Send user left notification to WebSocket"""
         # Send update to all remaining users to ensure everyone has the current count
-        print(f"[user_left] Sending update to {self.username} about {event['username']} leaving")
-        print(f"[user_left] Users remaining: {event['users']}, count: {len(event['users'])}")
+        # print(f"[user_left] Sending update to {self.username} about {event['username']} leaving")
+        # print(f"[user_left] Users remaining: {event['users']}, count: {len(event['users'])}")
         
         await self.send(text_data=json.dumps({
             'type': 'users_update',
@@ -559,7 +559,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         """Send cursor position to WebSocket"""
         # Don't send cursor position back to the sender
         if event.get('sender_channel') != self.channel_name:
-            print(f"Sending cursor update to client - User: {event['username']} (ID: {event.get('user_id')}), X: {event['x']}, Y: {event['y']}")
+            # print(f"Sending cursor update to client - User: {event['username']} (ID: {event.get('user_id')}), X: {event['x']}, Y: {event['y']}")
             await self.send(text_data=json.dumps({
                 'type': 'cursor_update',
                 'username': event['username'],  # This now includes ID suffix if needed
@@ -569,7 +569,8 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'timestamp': datetime.now().isoformat()
             }))
         else:
-            print(f"Skipping cursor update for sender: {event['username']} (ID: {event.get('user_id')})")
+            # print(f"Skipping cursor update for sender: {event['username']} (ID: {event.get('user_id')})")
+            pass
     
     # NEW: Drawing event broadcasts
     async def add_icon_clicked(self, event):
@@ -683,24 +684,24 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         message = data.get('message')
         timestamp = data.get('timestamp', datetime.now().isoformat())
         
-        print(f"[SERVER] Chat message from {username} in room {self.room_id}: '{message}'")
-        print(f"[SERVER] Room group name: {self.room_group_name}")
-        print(f"[SERVER] Sender channel: {self.channel_name}")
+        # print(f"[SERVER] Chat message from {username} in room {self.room_id}: '{message}'")
+        # print(f"[SERVER] Room group name: {self.room_group_name}")
+        # print(f"[SERVER] Sender channel: {self.channel_name}")
         
         # Get current users in room for debugging
         users = await room_manager.get_users_in_room(self.room_id)
-        print(f"[SERVER] Current users in room: {users}")
+        # print(f"[SERVER] Current users in room: {users}")
         
         if not username or not message:
-            print(f"[SERVER] ERROR: Missing username ({username}) or message ({message})")
+            # print(f"[SERVER] ERROR: Missing username ({username}) or message ({message})")
             await self.send_error('Username and message are required')
             return
         
         # Get the display username for this user (handles duplicates with ID suffixes)
         display_username = await room_manager.get_display_username_for_user(self.room_id, self.user_id, self.username)
-        print(f"[SERVER] Display username for chat: {display_username}")
+        # print(f"[SERVER] Display username for chat: {display_username}")
         
-        print(f"[SERVER] Broadcasting message to group: {self.room_group_name}")
+        # print(f"[SERVER] Broadcasting message to group: {self.room_group_name}")
         # Broadcast chat message to all users in the room
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -712,13 +713,13 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'sender_channel': self.channel_name
             }
         )
-        print(f"[SERVER] Message broadcast sent")
+        # print(f"[SERVER] Message broadcast sent")
     
     async def chat_broadcast(self, event):
         """Send chat message to WebSocket"""
-        print(f"[SERVER] chat_broadcast called for user {self.username}")
-        print(f"[SERVER] Broadcasting message from {event['username']}: '{event['message']}'")
-        print(f"[SERVER] Channel: {self.channel_name}")
+        # print(f"[SERVER] chat_broadcast called for user {self.username}")
+        # print(f"[SERVER] Broadcasting message from {event['username']}: '{event['message']}'")
+        # print(f"[SERVER] Channel: {self.channel_name}")
         
         # Send to all users including the sender
         message_data = {
@@ -728,9 +729,9 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             'timestamp': event['timestamp']
         }
         
-        print(f"[SERVER] Sending message data: {message_data}")
+        # print(f"[SERVER] Sending message data: {message_data}")
         await self.send(text_data=json.dumps(message_data))
-        print(f"[SERVER] Message sent to {self.username}")
+        # print(f"[SERVER] Message sent to {self.username}")
     
     async def handle_clear_user_drawings(self, data):
         """Handle request to clear a user's drawings"""
@@ -741,7 +742,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             await self.send_error('Username is required for clearing drawings')
             return
         
-        print(f"[DRAWING] Clearing drawings for user: {username} (ID: {user_id})")
+        # print(f"[DRAWING] Clearing drawings for user: {username} (ID: {user_id})")
         
         # Get the display username for this user (handles duplicates with ID suffixes)
         display_username = await room_manager.get_display_username_for_user(self.room_id, user_id, username)
@@ -775,9 +776,9 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         region_data = data.get('region_data')
         feature_id = data.get('feature_id')  # Extract feature ID if provided
         
-        print(f"[REGION DELETE] Region '{region_name}' deleted by user: {username} (ID: {user_id}) in room {self.room_id}")
-        print(f"[REGION DELETE] Feature ID: {feature_id if feature_id else 'NOT PROVIDED'}")
-        print(f"[REGION DELETE] Region data: {region_data}")
+        # print(f"[REGION DELETE] Region '{region_name}' deleted by user: {username} (ID: {user_id}) in room {self.room_id}")
+        # print(f"[REGION DELETE] Feature ID: {feature_id if feature_id else 'NOT PROVIDED'}")
+        # print(f"[REGION DELETE] Region data: {region_data}")
         
         # Extract feature ID from region_data if not provided directly
         if not feature_id and region_data:
@@ -788,7 +789,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         
         # Get the display username for this user (handles duplicates with ID suffixes)
         display_username = await room_manager.get_display_username_for_user(self.room_id, user_id, username)
-        print(f"[REGION DELETE] Display username for deletion: {display_username}")
+        # print(f"[REGION DELETE] Display username for deletion: {display_username}")
         
         # Broadcast region deletion to all OTHER users in the room
         await self.channel_layer.group_send(
@@ -803,13 +804,13 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'sender_channel': self.channel_name
             }
         )
-        print(f"[REGION DELETE] Broadcast sent to room group: {self.room_group_name}")
+        # print(f"[REGION DELETE] Broadcast sent to room group: {self.room_group_name}")
 
     async def region_deleted_broadcast(self, event):
         """Send region deletion to WebSocket"""
         # Don't send back to the sender - only to other users
         if event.get('sender_channel') != self.channel_name:
-            print(f"[REGION DELETE] Sending deletion message to user {self.username}")
+            # print(f"[REGION DELETE] Sending deletion message to user {self.username}")
             await self.send(text_data=json.dumps({
                 'type': 'region_deleted',
                 'username': event['username'],  # This now includes ID suffix if needed
@@ -834,12 +835,12 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         geometry_type = data.get('geometry_type')
         original_coordinates = data.get('original_coordinates')  # Original coordinates before edit
         
-        print(f"[REGION EDIT START] Region '{region_name}' being edited by user: {username} (ID: {user_id}) in room {self.room_id}")
-        print(f"[REGION EDIT START] Feature ID: {feature_id} - THIS IS THE PRIMARY IDENTIFIER")
-        print(f"[REGION EDIT START] Region ID (data.id): {region_id}")
-        print(f"[REGION EDIT START] Region data: {region_data}")
-        print(f"[REGION EDIT START] Geometry type: {geometry_type}")
-        print(f"[REGION EDIT START] Has original coordinates: {'Yes' if original_coordinates else 'No'}")
+        # print(f"[REGION EDIT START] Region '{region_name}' being edited by user: {username} (ID: {user_id}) in room {self.room_id}")
+        # print(f"[REGION EDIT START] Feature ID: {feature_id} - THIS IS THE PRIMARY IDENTIFIER")
+        # print(f"[REGION EDIT START] Region ID (data.id): {region_id}")
+        # print(f"[REGION EDIT START] Region data: {region_data}")
+        # print(f"[REGION EDIT START] Geometry type: {geometry_type}")
+        # print(f"[REGION EDIT START] Has original coordinates: {'Yes' if original_coordinates else 'No'}")
         if original_coordinates:
             print(f"[REGION EDIT START] Original coordinates sample: {str(original_coordinates)[:100]}...")
         
@@ -869,13 +870,13 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'sender_channel': self.channel_name
             }
         )
-        print(f"[REGION EDIT START] Broadcast sent to room group: {self.room_group_name}")
+        # print(f"[REGION EDIT START] Broadcast sent to room group: {self.room_group_name}")
 
     async def region_edit_start_broadcast(self, event):
         """Send region edit start to WebSocket"""
         # Don't send back to the sender - only to other users
         if event.get('sender_channel') != self.channel_name:
-            print(f"[REGION EDIT START] Sending edit start message to user {self.username}")
+            # print(f"[REGION EDIT START] Sending edit start message to user {self.username}")
             await self.send(text_data=json.dumps({
                 'type': 'region_edit_start',
                 'username': event['username'],  # This now includes ID suffix if needed
@@ -904,19 +905,19 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         geometry_type = data.get('geometry_type')
         original_coordinates = data.get('original_coordinates')  # Original coordinates for proper matching
         
-        print(f"[REGION EDIT END] Region '{region_name}' edit completed by user: {username} (ID: {user_id}) in room {self.room_id}")
-        print(f"[REGION EDIT END] Feature ID: {feature_id} - THIS IS THE PRIMARY IDENTIFIER")
-        print(f"[REGION EDIT END] Region ID (data.id): {region_id}")
-        print(f"[REGION EDIT END] Region data: {region_data}")
-        print(f"[REGION EDIT END] Geometry type: {geometry_type}")
-        print(f"[REGION EDIT END] Final coordinates length: {len(final_coordinates) if final_coordinates else 0}")
-        print(f"[REGION EDIT END] Has original coordinates: {'Yes' if original_coordinates else 'No'}")
+        # print(f"[REGION EDIT END] Region '{region_name}' edit completed by user: {username} (ID: {user_id}) in room {self.room_id}")
+        # print(f"[REGION EDIT END] Feature ID: {feature_id} - THIS IS THE PRIMARY IDENTIFIER")
+        # print(f"[REGION EDIT END] Region ID (data.id): {region_id}")
+        # print(f"[REGION EDIT END] Region data: {region_data}")
+        # print(f"[REGION EDIT END] Geometry type: {geometry_type}")
+        # print(f"[REGION EDIT END] Final coordinates length: {len(final_coordinates) if final_coordinates else 0}")
+        # print(f"[REGION EDIT END] Has original coordinates: {'Yes' if original_coordinates else 'No'}")
         if original_coordinates:
             print(f"[REGION EDIT END] Original coordinates length: {len(original_coordinates)}")
         
         # Validate feature ID
         if not feature_id:
-            print(f"[REGION EDIT END] WARNING: No feature_id provided! This will cause issues with duplicate named regions")
+            # print(f"[REGION EDIT END] WARNING: No feature_id provided! This will cause issues with duplicate named regions")
             print(f"[REGION EDIT END] Will fall back to name-based matching which is unreliable with duplicates")
         else:
             print(f"[REGION EDIT END] ✓ Feature ID present: {feature_id}")
@@ -926,7 +927,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
             print(f"[REGION EDIT END] ERROR: Missing both region_name and feature_id - cannot identify region!")
         
         if not final_coordinates:
-            print(f"[REGION EDIT END] ERROR: No final coordinates provided!")
+            # print(f"[REGION EDIT END] ERROR: No final coordinates provided!")
             await self.send_error('Region edit end missing final coordinates')
             return
         
@@ -950,7 +951,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'sender_channel': self.channel_name
             }
         )
-        print(f"[REGION EDIT END] Broadcast sent to room group: {self.room_group_name}")
+        # print(f"[REGION EDIT END] Broadcast sent to room group: {self.room_group_name}")
 
     async def handle_style_change(self, data):
         """Handle style change event"""
@@ -959,8 +960,8 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         feature_id = data.get('feature_id')
         style_changes = data.get('style_changes')
         
-        print(f"[STYLE CHANGE] Feature '{feature_id}' style changed by user: {username} (ID: {user_id}) in room {self.room_id}")
-        print(f"[STYLE CHANGE] Style changes: {style_changes}")
+        # print(f"[STYLE CHANGE] Feature '{feature_id}' style changed by user: {username} (ID: {user_id}) in room {self.room_id}")
+        # print(f"[STYLE CHANGE] Style changes: {style_changes}")
         
         # Get the display username for this user (handles duplicates with ID suffixes)
         display_username = await room_manager.get_display_username_for_user(self.room_id, user_id, username)
@@ -977,13 +978,13 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 'sender_channel': self.channel_name
             }
         )
-        print(f"[STYLE CHANGE] Broadcast sent to room group: {self.room_group_name}")
+        # print(f"[STYLE CHANGE] Broadcast sent to room group: {self.room_group_name}")
 
     async def style_change_broadcast(self, event):
         """Send style change to WebSocket"""
         # Don't send back to the sender - only to other users
         if event.get('sender_channel') != self.channel_name:
-            print(f"[STYLE CHANGE] Sending style change message to user {self.username}")
+            # print(f"[STYLE CHANGE] Sending style change message to user {self.username}")
             await self.send(text_data=json.dumps({
                 'type': 'style_change',
                 'username': event['username'],  # This now includes ID suffix if needed
@@ -999,9 +1000,9 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         """Send region edit end to WebSocket"""
         # Don't send back to the sender - only to other users
         if event.get('sender_channel') != self.channel_name:
-            print(f"[REGION EDIT END BROADCAST] Sending edit end message to user {self.username}")
-            print(f"[REGION EDIT END BROADCAST] Event region: {event.get('region_name')} (ID: {event.get('feature_id')})")
-            print(f"[REGION EDIT END BROADCAST] Sender: {event.get('username')}")
+            # print(f"[REGION EDIT END BROADCAST] Sending edit end message to user {self.username}")
+            # print(f"[REGION EDIT END BROADCAST] Event region: {event.get('region_name')} (ID: {event.get('feature_id')})")
+            # print(f"[REGION EDIT END BROADCAST] Sender: {event.get('username')}")
             
             # Create message with all necessary data
             message_data = {
@@ -1023,7 +1024,7 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 print(f"[REGION EDIT END BROADCAST] WARNING: No coordinates in broadcast message!")
             
             await self.send(text_data=json.dumps(message_data))
-            print(f"[REGION EDIT END BROADCAST] Message sent to {self.username}")
+            # print(f"[REGION EDIT END BROADCAST] Message sent to {self.username}")
         else:
             print(f"[REGION EDIT END BROADCAST] Correctly skipping sender {self.username}")
     
