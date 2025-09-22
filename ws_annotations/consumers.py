@@ -136,6 +136,8 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
                 await self.handle_style_change(data)
             elif message_type == 'arrow_direction_selected':
                 await self.handle_arrow_direction_selected(data)
+            elif message_type == 'timestamp_update':
+                await self.handle_timestamp_update(data)
             else:
                 await self.send_error('Unknown message type')
                 
@@ -1028,6 +1030,52 @@ class AnnotationRoomConsumer(AsyncWebsocketConsumer):
         else:
             print(f"[REGION EDIT END BROADCAST] Correctly skipping sender {self.username}")
     
+    async def handle_timestamp_update(self, data):
+        """Handle timestamp update event"""
+        username = data.get('username', self.username)
+        user_id = data.get('user_id', self.user_id)
+        timestamp_data = data.get('timestamp_data')
+        
+        # Validate required fields
+        if not timestamp_data:
+            await self.send_error('Timestamp data is required')
+            return
+            
+        # print(f"[TIMESTAMP UPDATE] New timestamp from user: {username} (ID: {user_id}) in room {self.room_id}")
+        # print(f"[TIMESTAMP UPDATE] Action: {timestamp_data.get('action')}, Node: {timestamp_data.get('node')}")
+        
+        # Get the display username for this user (handles duplicates with ID suffixes)
+        display_username = await room_manager.get_display_username_for_user(self.room_id, user_id, username)
+        
+        # Broadcast timestamp update to all OTHER users in the room
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'timestamp_update_broadcast',
+                'username': display_username,  # Use display username with ID if needed
+                'user_id': user_id,  # Include user ID for identification
+                'timestamp_data': timestamp_data,
+                'sender_channel': self.channel_name
+            }
+        )
+        # print(f"[TIMESTAMP UPDATE] Broadcast sent to room group: {self.room_group_name}")
+
+    async def timestamp_update_broadcast(self, event):
+        """Send timestamp update to WebSocket"""
+        # Don't send back to the sender - only to other users
+        if event.get('sender_channel') != self.channel_name:
+            # print(f"[TIMESTAMP UPDATE] Sending timestamp update to user {self.username}")
+            await self.send(text_data=json.dumps({
+                'type': 'timestamp_update',
+                'username': event['username'],  # This now includes ID suffix if needed
+                'user_id': event.get('user_id'),  # Include user ID for frontend tracking
+                'timestamp_data': event.get('timestamp_data'),
+                'timestamp': datetime.now().isoformat()
+            }))
+        else:
+            # print(f"[TIMESTAMP UPDATE] Skipping sender {self.username}")
+            pass
+
     async def send_error(self, error_message):
         """Send error message to WebSocket"""
         await self.send(text_data=json.dumps({
